@@ -1,0 +1,324 @@
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+   <META NAME="GENERATOR" CONTENT="Mozilla/4.02 [en] (Win95; I) [Netscape]">
+   <TITLE>Movie Search Page</TITLE>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+
+var firstLoad=true;
+var MIndex = new Array();
+var TIndex = new Array();
+
+function movie(MID, MTitle, MRating)
+{
+	this.MID = MID;
+	this.MTitle= MTitle;
+	this.MRating= MRating;
+}
+
+function theater(TID, TName, TLocation, TPhone)
+{
+	this.TID=TID;
+	this.TName = TName;
+	this.TLocation = TLocation;
+	this.TPhone = TPhone;
+}
+
+function show(MID, TID, STimeTxt)
+{	
+	this.MID = MID;
+	this.TID = TID;
+	this.STime = STimeTxt;
+}
+
+function credit(MID, CCode, CName)
+{
+	this.MID = MID;
+	this.CCode = CCode;
+	this.CName = CName; 
+}
+
+var Movies = new Array();
+var Credits = new Array();
+var Theaters = new Array();
+var Shows = new Array();
+var nMovies=0, nCredits=0, nTheaters=0, nShows=0,nCNames=0;
+
+function parseMRecord(MRec) 
+{	
+	var MFields = MRec.split("	");
+	var MID = MFields[1];
+	var MTitle = MFields[2];
+	var MRating = MFields[3];
+	var CCode;
+	var CName;
+
+	Movies[nMovies] = new movie(MID,MTitle, MRating);
+	MIndex[MID] = nMovies;
+	nMovies++;
+
+	for (i=4; i < MFields.length; i++) {
+		CCode = MFields[i].substring(0,1);
+		CName = MFields[i].substring(1, MFields[i].length);
+
+		Credits[nCredits] = new credit(MID, CCode, CName);
+		nCredits++;
+	}
+}
+
+function parseTRecord(TRec)
+{
+	var TFields=TRec.split("	");
+	var TID = TFields[1];
+	var TName= TFields[2];
+	var TLocation = TFields[3];
+	var TPhone = "";
+
+	Theaters[nTheaters] = new theater(TID, TName, TLocation, TPhone);
+	TIndex[TID] = nTheaters;
+	nTheaters++;
+}
+
+function parseSRecord(SRec) 
+{
+	var SFields=SRec.split("	");
+	var MID = SFields[1];
+	var TID = SFields[2];
+	var STimeTxt;
+
+	for (i=3; i < SFields.length; i++) {
+		STimeTxt=SFields[i];
+		if (STimeTxt.substring(1,2) ==":") STimeTxt = "0" + STimeTxt;
+		Shows[nShows] = new show(MID, TID, STimeTxt);
+		nShows++;
+	}
+	
+}
+
+
+function autoReload() {
+	if (parent.Results.document.title == "") {
+		generateShowLinks();
+	}
+	setTimeout('autoReload()',500);
+	//alert(parent.Results.document.title);
+}
+
+
+function generateShowLinks()
+{
+	var showListObj = document.SearchCriteria.ShowInfoListBox;
+	var movieListObj = document.SearchCriteria.MTitleListBox;
+	var theaterListObj = document.SearchCriteria.TNameListBox;
+	var hourListObj = document.SearchCriteria.HourOfDayListBox;
+
+	//get the user search criteria
+	var uMID = movieListObj.options[movieListObj.selectedIndex].value;
+	var uTID = theaterListObj.options[theaterListObj.selectedIndex].value;
+	var uHourOfDay = hourListObj.options[hourListObj.selectedIndex].text;
+	if (uHourOfDay.substring(1,2) == ":") uHourOfDay = "0" + uHourOfDay;
+
+
+	//update the show listing
+	linksDoc = "<HTML><HEAD><TITLE>Show Links</TITLE></HEAD><BODY BACKGROUND='image3.gif'>";
+	for (i=0; i < nShows; i++) {
+		var MTitle, TName;
+		with (Shows[i]) {
+			allCriteriaMet=true;
+			if (uMID != "0" && MID != uMID) allCriteriaMet = false;
+			if (uTID != "0" && TID != uTID) allCriteriaMet = false;
+			if (uHourOfDay != "ALL TIMES" && uHourOfDay > STime) allCriteriaMet = false;
+			if (allCriteriaMet) {
+				MTitle = Movies[MIndex[MID]].MTitle;
+				TName = Theaters[TIndex[TID]].TName;
+
+				//linksDoc += "<B><A HREF='' ONCLICK=parent.SearchEngine.showDetails(" + i + ")>";
+				linksDoc += "<B><A HREF='javascript:parent.SearchEngine.showDetails(" + i + ")'>";
+				linksDoc += "<FONT color=red>" + MTitle + "</FONT>";
+				linksDoc += "<FONT color=blue>" + TName + "</FONT>";
+				linksDoc += "<FONT color=black>" + STime + "</FONT>";
+				linksDoc += "</B></A><BR>"; 
+			}
+		}
+	}
+	linksDoc += "</BODY></HTML>";	
+
+	//alert(linksDoc);
+
+	parent.Results.document.open();
+	parent.Results.document.writeln(linksDoc);
+	parent.Results.document.close();
+
+}
+
+function showDetails(SIndex)
+{
+		
+	var STime = Shows[SIndex].STime;
+	with (Shows[SIndex]) {
+		var MTitle = Movies[MIndex[MID]].MTitle;
+		var MRating = Movies[MIndex[MID]].MRating;
+	}
+	
+	var DirList="", ActList="";
+	for (i=0; i < nCredits; i++) {
+		if (Credits[i].MID == Shows[SIndex].MID) {
+			if (Credits[i].CCode == "D") DirList += (", " + Credits[i].CName);
+			if (Credits[i].CCode == "A") ActList += (", " + Credits[i].CName);
+		}
+	}
+	if (DirList != "") DirList = DirList.substring(2,DirList.length);
+	if (ActList != "") ActList = ActList.substring(2, ActList.length);
+
+	with (Shows[SIndex]) {
+		var TName=Theaters[TIndex[TID]].TName;
+		var TLocation=Theaters[TIndex[TID]].TLocation;
+		var TPhone=Theaters[TIndex[TID]].TPhone;
+	}
+	showInfoContents = "<HTML><HEAD><TITLE> Show Information </TITLE></HEAD>";
+	showInfoContents += "<BODY BACKGROUND='Image3.gif' TEXT='#FF0000'>";
+	showInfoContents += "<FORM><TABLE width ='100%'><TR>";
+	showInfoContents += ("<TD><FONT size='+3' COLOR=blue>" + MTitle + " (" + MRating + ")</FONT></TD>");
+	showInfoContents += "<TD align=right><INPUT TYPE=button value='Back to Links' onClick=parent.SearchEngine.generateShowLinks()></TD>";
+	showInfoContents += "</TR></TABLE></FORM><BR>";
+	showInfoContents += "<TABLE ALIGN=top><FONT COLOR=red>";
+	showInfoContents += "<TR><TD><B>Directed By:</B></TD><TD COLSPAN=2><B>" + DirList + "</B></TD></TR>";
+	showInfoContents += "<TR><TD><B>Featuring:</B></TD><TD COLSPAN=2><B>" + ActList + "</B></TD></TR>";
+	showInfoContents += "<TR><TD><B>Theater:</B></TD><TD><B>" + TName + "</B></TD><TD>" + TPhone + "</B></TD></TR>";
+	showInfoContents += "<TR><TD></TD><TD COLSPAN=2><B>" + TLocation + "</B></TD></TR>";
+	showInfoContents += "<TR><TD><B>Show Time:</B></TD><TD COLSPAN=2><B>" + STime + "</B></TD><TR>";
+	showInfoContents += "</FONT></TABLE></BODY></HTML>";
+		
+	//alert(showInfoContents);	
+	
+	//parent.Results.document.open();
+	//parent.Results.document.writeln(showInfoContents);
+	//parent.Results.document.close();
+
+	return showInfoContents;
+}
+
+parseMRecord("M	1	Associate, The	PG-13	AAustin Pendleton	ABebe Neuwirth	ADianne Wiest	AEli Wallach	AKenny Kerr	ALainie Kazan	ATim Daly	AWhoopi Goldberg	DDonald Petrie");
+parseMRecord("M	2	Big Night	R	ACampbell Scott	AIan Holm	AIsabella Rossellini	AMinnie Driver	AStanley Tucci	ATony Shalhoub	DCampbell Scott	DStanley Tucci");
+parseMRecord("M	3	D3: The Mighty Ducks	PG	AEmilio Estevez	AHeidi Kling	AJeffrey Nordling	AJoss Ackland	ARob Lieberman	DRob Lieberman");
+parseMRecord("M	4	Dear God	PG	AGreg Kinnear	AHector Elizondo	AJon Seda	ALaurie Metcalf	AMaria Pitillo	ARoscoe Lee Browne	ATim Conway	DGarry Marshall");
+parseMRecord("M	5	First Wives Club, The	PG-13	ABette Midler	ADiane Keaton	AGoldie Hawn	DHugh Wilson");
+parseMRecord("M	6	Fly Away Home	PG	AAnna Paquin	ADana Delany	AJeff Daniels	DCarroll Ballard");
+parseMRecord("M	7	Ghost & The Darkness, The	R	ABernard Hill	ABrian McCardie	AEmily Mortimer	AHenry Cele	AJohn Kani	AMichael Douglas	ATom Wilkinson	AVal Kilmer	DStephen Hopkins");
+parseMRecord("M	8	High School High	PG-13	Aand Louise Fletcher	AJon Lovitz	AMekhi Phifer	ATia Carrera	DHart Bochner");
+parseMRecord("M	9	Independence Day	PG-13	ABill Pullman	ABill Smitrovich	AHarvey Fierstein	AJeff Goldblum	AJudd Hirsch	AMargaret Colin	AMary McDonnell	ARandy Quaid	ARobert Loggia	AVivica Fox	AWill Smith	DRoland Emmerich");
+parseMRecord("M	10	Larger Than Life	PG	ABill Murray	AJaneane Garofalo	AJeremy Piven	AKeith David	AMatthew McConaughey	APat Hingle	DHoward Franklin");
+parseMRecord("M	11	Michael Collins	R	AAidan Quinn	AAlan Rickman	AJulia Roberts	ALiam Neeson	AStephen Rea	DNeil Jordan");
+parseMRecord("M	12	Mirror Has Two Faces, The	PG-13	ABarbra Streisand	AJeff Bridges	ALauren Bacall	APierce Brosnan	DBarbra Streisand");
+parseMRecord("M	13	Nutty Professor, The	PG-13	ADave Chappelle	AEddie Murphy	AJada Pinkett	AJames Coburn	AJohn Ales	ALarry Miller	DTom Shadyac");
+parseMRecord("M	14	Phenomenon	PG	AForest Whitaker	AJohn Travolta	AKyra Sedgwick	ARobert Duvall	DJon Turteltaub");
+parseMRecord("M	15	Ransom	R	ADelroy Lindo	AGary Sinese	ALili Taylor	AMel Gibson	ARene Russo	DRon Howard");
+parseMRecord("M	16	Romeo & Juliet	R	AClaire Danes	ADiane Venora	AJohn Leguizamo	ALeonardo DiCaprio	APaul Rudd	APaul Sorvino	DBaz Luhrmann");
+parseMRecord("M	17	Set It Off	R	ABlair Underwood	AJada Pinkett	AJohn C. McGinley	AKimberly Elise	AQueen Latifah	AVivica Fox	DF. Gary Gray");
+parseMRecord("M	18	Sleepers	R	ABilly Crudup	ABrad Pitt	ABrad Renfro	ADustin Hoffman	AJason Patric	AJoseph Perrino	AKevin Bacon	AMinnie Driver	ARobert De Niro	ARon Eldard	ATerry Kinney	AVittorio Gassman	DBarry Levinson");
+parseMRecord("M	19	Space Jam	PG	ABill Murray	AMichael Jordan	ATheresa Randle	AWayne Knight	DJoe Pytka");
+parseMRecord("M	20	Stephen King's Thinner	R	AJoe Mantegna	AKari Wuhrer	ALucinda Jenney	AMichael Constantine	ARobert John Burke	DTom Holland");
+parseMRecord("M	21	Surviving Picasso	R	AAnthony Hopkins	ADiane Venora	AJoan Plowright	AJulianne Moore	ANatascha McElhone	DJames Ivory");
+parseMRecord("M	22	That Thing You Do	PG	AEthan Embry	AJohnathon Schaech	ASteve Zahn	ATom Everett Scott	DTom Hanks");
+parseMRecord("M	23	Very Brady Sequel, A	PG-13	AChristine Taylor	AChristopher Daniel Barnes	AGary Cole	AHenriette Mantel	AJennifer Elise Cox	AJesse Lee	AOlivia Hack	APaul Sutera	AShelley Long	ATim Matheson	DArlene Sanford");
+parseTRecord("T	1	Akarakian Theatres Moreno 4 Cinemas	The Intersection Of Alessandro + Perris Blvds, Moreno Valley	(909) 485-2899");
+parseTRecord("T	2	Cinema Star The Ultraplex 14	Mission Grove, Riverside	(909) 342-2256");
+parseTRecord("T	3	General Cinema Rancho 6	 I-215 At Mt. Vernon I-10, San Bernardino	(714) 370-2085");
+parseTRecord("T	4	Pacific Inland Center	 Inland Center Mall, San Bernardino	(714) 381-1611");
+parseTRecord("T	5	SOCAL Canyon Crest Cinema	Central Avenue South Of 60 Freeway Near Ucr, Riverside	(909) 682-6900");
+parseTRecord("T	6	SOCAL Canyon Springs Cinema	East Of I-215 On 60 Freeway At Day Street Canyon, Moreno Valley	(909) 782-0800");
+parseTRecord("T	7	SOCAL Marketplace Cinema	University/mission Inn Exits East Of 91 Freeway On, Riverside	(909) 682-4040");
+parseTRecord("T	8	United Artists Riverside (Galleria) Tyler Mall	Riverside Fwy Tyler, Riverside	(714) 689-802");
+parseTRecord("T	9	United Artists Riverside Park Sierra	3600 Park Sierra Dr., Riverside	(909) 359-6995");
+parseSRecord("S	1	1	4:20 PM	7:20 PM	9:40 PM");
+parseSRecord("S	1	2	4:40 PM	7:30 PM");
+parseSRecord("S	1	3	5:00 PM	7:30 PM");
+parseSRecord("S	2	5	4:40 PM	7:10 PM	9:40 PM");
+parseSRecord("S	3	2	2:30 PM");
+parseSRecord("S	3	6	4:15 PM");
+parseSRecord("S	4	2	5:15 PM	7:45 PM");
+parseSRecord("S	4	3	4:45 PM	7:15 PM");
+parseSRecord("S	4	6	6:40 PM	9:00 PM");
+parseSRecord("S	4	9	5:15 PM	9:25 PM");
+parseSRecord("S	5	2	5:30 PM	8:00 PM");
+parseSRecord("S	5	3	5:30 PM	8:00 PM");
+parseSRecord("S	5	6	4:20 PM	6:30 PM	8:40 PM");
+parseSRecord("S	5	8	4:20 PM	7:10 PM	9:30 PM");
+parseSRecord("S	6	5	3:50 PM");
+parseSRecord("S	6	6	4:50 PM");
+parseSRecord("S	7	1	5:10 PM	9:00 PM	9:05 PM");
+parseSRecord("S	7	2	5:00 PM	7:40 PM");
+parseSRecord("S	7	4	10:05 PM	5:15 PM	7:40 PM");
+parseSRecord("S	7	5	6:50 PM	9:15 PM");
+parseSRecord("S	7	6	7:20 PM	9:50 PM");
+parseSRecord("S	7	9	7:15 PM");
+parseSRecord("S	8	2	4:00 PM	6:15 PM	8:30 PM");
+parseSRecord("S	8	8	5:00 PM	7:00 PM	9:00 PM");
+parseSRecord("S	9	1	7:00 PM");
+parseSRecord("S	9	5	6:10 PM	9:10 PM");
+parseSRecord("S	10	2	8:20 PM");
+parseSRecord("S	10	9	7:30 PM");
+parseSRecord("S	11	3	4:00 PM	7:15 PM");
+parseSRecord("S	11	5	6:20 PM	9:10 PM");
+parseSRecord("S	12	2	4:45 PM	5:45 PM	7:45 PM	8:45 PM");
+parseSRecord("S	12	7	4:10 PM	6:45 PM	9:25 PM");
+parseSRecord("S	12	9	10:20 PM	4:30 PM	7:40 PM");
+parseSRecord("S	13	5	4:25 PM	8:05 PM");
+parseSRecord("S	14	5	6:20 PM	9:15 PM");
+parseSRecord("S	15	2	4:15 PM	4:45 PM	5:15 PM	7:00 PM	7:30 PM	8:00 PM	9:45 PM");
+parseSRecord("S	15	7	4:20 PM	5:20 PM	7:00 PM	8:00 PM	9:40 PM");
+parseSRecord("S	16	3	5:15 PM	7:45 PM");
+parseSRecord("S	16	5	4:30 PM	7:00 PM	9:30 PM");
+parseSRecord("S	16	6	4:30 PM	7:00 PM	9:30 PM");
+parseSRecord("S	16	8	4:30 PM	7:00 PM	9:45 PM");
+parseSRecord("S	17	5	4:10 PM	6:30 PM	9:00 PM");
+parseSRecord("S	17	6	4:25 PM	6:50 PM	9:15 PM");
+parseSRecord("S	17	9	10:05 PM	4:40 PM	7:20 PM");
+parseSRecord("S	18	2	7:30 PM");
+parseSRecord("S	18	3	7:00 PM");
+parseSRecord("S	18	6	5:30 PM	8:30 PM");
+parseSRecord("S	18	9	4:20 PM	9:30 PM");
+parseSRecord("S	19	2	5:00 PM	6:00 PM	7:15 PM	8:15 PM");
+parseSRecord("S	19	6	4:45 PM	5:50 PM	7:15 PM	8:10 PM	9:30 PM");
+parseSRecord("S	19	8	5:25 PM	7:30 PM	9:35 PM");
+parseSRecord("S	20	2	6:00 PM");
+parseSRecord("S	21	5	6:40 PM	9:25 PM");
+parseSRecord("S	22	6	4:40 PM	7:15 PM	9:40 PM");
+parseSRecord("S	23	5	6:00 PM");
+
+
+//-->
+</SCRIPT>
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFF0F0" LINK="#FF0000" VLINK="#800080" ALINK="#0000FF" ONLOAD=generateShowLinks()>
+
+<H1>
+<FONT COLOR="#FF0000">Movies
+Tonight</FONT></H1>
+<FORM Name=SearchCriteria><SCRIPT Language="JavaScript">
+	<!--
+	document.writeln("<TABLE><TR><TD> Movie: </TD><TD>");
+	document.writeln("<SELECT Name='MTitleListBox' onChange='generateShowLinks()'>");
+	document.writeln("<OPTION value='0'> ALL MOVIES")
+	for (i=0; i < nMovies; i++) {
+		document.writeln("<OPTION VALUE=" + Movies[i].MID + ">" + Movies[i].MTitle);
+	}
+	document.writeln("</SELECT><BR></TD></TR><TR><TD>Theater:</TD><TD>");
+	document.writeln("<SELECT Name='TNameListBox' onChange='generateShowLinks()'>");
+	document.writeln("<OPTION value='0'> ALL THEATERS");
+	for (i=0; i < nTheaters; i++) {
+		document.writeln("<OPTION VALUE=" + Theaters[i].TID + ">" + Theaters[i].TName);
+	}
+	document.writeln("</SELECT><BR></TD></TR><TR><TD>Showtimes after ...</TD><TD>"); 
+	document.writeln("<SELECT Name='HourOfDayListBox' onChange='generateShowLinks()'>");
+	document.writeln("<OPTION value='0'> ALL TIMES </OPTION><OPTION>01:00 PM </OPTION><OPTION>02:00 PM </OPTION><OPTION>03:00 PM </OPTION><OPTION>04:00 PM</OPTION>"); 
+	document.writeln("<OPTION>05:00 PM </OPTION><OPTION>06:00 PM </OPTION><OPTION>07:00 PM </OPTION><OPTION>08:00 PM </OPTION><OPTION>09:00 PM</OPTION>"); 
+	document.writeln("<OPTION>10:00 PM </OPTION><OPTION>11:00 PM</OPTION>");
+	document.writeln("</SELECT><BR></TD></TR><TR></TABLE><HR>");
+	autoReload();
+	//-->
+	</SCRIPT>
+</FORM>
+</BODY>
+</HTML>
